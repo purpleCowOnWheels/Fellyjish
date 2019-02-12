@@ -11,6 +11,10 @@ from time       import sleep
 from math       import cos, sin, radians, floor, sqrt
 from bisect     import bisect
 
+basePath    = os.path.dirname( os.path.dirname( __file__ ) ) #location of this exe file, up 2 directories
+sys.path.append( basePath + '/Libraries' )
+
+import excel_fns as xlFns
 
 def video_to_frames(input_loc, output_loc):    
     try:
@@ -251,12 +255,12 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
             this_center_y       = int(np.mean(centers_y[max(0,len(centers_y)-500):]))            
             print( ' | Rolling avg. center location: (' + str( this_center_x ) + ', ' + str( this_center_y ) + ')' )
         
-        if( N % 10000 == 0 ):
+        if( N > 0 and N % 10000 == 0 ):
             if( not os.path.exists( os.path.dirname( basePath ) + '\Results\Time Series\inProgress' ) ):
                 os.mkdir( os.path.dirname( basePath ) + '\Results\Time Series\inProgress' )
                 
             #write intermediate output to a temp excel location; if this is slow just tweak to write incremental data only
-            xlFns.to_excel( pd.DataFrame( jellyadii ),
+            xlFns.to_excel( { 'TimeSeries': pd.DataFrame( jellyadii ) },
                             file                    = os.path.dirname( basePath ) + '\Results\Time Series\inProgress\\' + frame_dir.replace(' ', '_') + '.xlsx',
                             masterFile              = os.path.dirname( basePath ) + '\Results\Time Series\Time_Series_vMaster.xlsx',
                             allowMasterOverride     = False,
@@ -269,7 +273,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         
         coordinates = [ get_coord( t, this_center_x, this_center_y ) for t in thetas ]
 
-        show_frames = [13, 14, 15]
+        show_frames = list( range( 1, 10, 1 ) )
         # img_clean   = locateContours ( img )
         this_img = img.copy()
         for coordinate in coordinates:
