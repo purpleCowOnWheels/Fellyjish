@@ -1,6 +1,7 @@
 
 *.pyc
 *.xlsx
+!spec/*master*.xlsx
 *.avi
 *.jpg
 *.csv
