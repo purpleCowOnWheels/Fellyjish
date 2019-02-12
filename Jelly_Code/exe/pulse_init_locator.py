@@ -80,7 +80,7 @@ for idx, dir in enumerate( all_vid_dirs ):
     first_pulses                    = first_pulses[ cols ]
     xlFns.to_excel( first_pulses,
                     file                    = os.path.dirname( basePath ) + '\Results\First Pulse\\FP_' + dir.replace(' ', '_') + '.xlsx',
-                    masterFile              = os.path.dirname( basePath ) + '\Results\First Pulse\Pulse_Order.xlsx',
+                    masterFile              = os.path.dirname( basePath ) + '\Results\First Pulse\Pulse_Order_vMaster.xlsx',
                     allowMasterOverride     = True,
                     promptIfLocked          = True,
                     xlsxEngine              = 'xlwings', #xlsxwriter, openpyxl
@@ -94,7 +94,7 @@ for idx, dir in enumerate( all_vid_dirs ):
     pulse_transition            = first_pulses[['init_agg', 'init_agg_next', 'pulse_index']].groupby(['init_agg', 'init_agg_next']).count().reset_index()
     pulse_transition.columns    = ['source', 'target', 'value']
     sankey_data                 = pulse_transition[ [ 'source', 'target', 'value'] ]
-    sankey_data.to_csv( os.path.dirname( basePath ) + '\Results\Sankey\sankey.csv', mode = 'w+', index = False )
+    sankey_data.to_csv( os.path.dirname( basePath ) + '\Results\Sankey\sankey_vMaster.csv', mode = 'w+', index = False )
 
     pulses      = first_pulses['init_agg'].tolist()
     streaks     = { key: [ ] for key in set( pulses ) }
@@ -110,7 +110,7 @@ for idx, dir in enumerate( all_vid_dirs ):
     streaks_df  = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in streaks.items() ]))
     xlFns.to_excel( streaks_df,
                     file                    = os.path.dirname( basePath ) + '\Results\Streaks\\Streaks_' + dir.replace(' ', '_') + '.xlsx',
-                    masterFile              = os.path.dirname( basePath ) + '\Results\Streaks\Streaks.xlsx',
+                    masterFile              = os.path.dirname( basePath ) + '\Results\Streaks\Streaks_vMaster.xlsx',
                     allowMasterOverride     = True,
                     promptIfLocked          = True,
                     xlsxEngine              = 'xlwings', #xlsxwriter, openpyxl
