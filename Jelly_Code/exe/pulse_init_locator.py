@@ -97,7 +97,7 @@ for idx, dir in enumerate( all_vid_dirs ):
     pulse_transition            = first_pulses[['file', 'init_agg', 'init_agg_next', 'pulse_index']].groupby(['file', 'init_agg', 'init_agg_next']).count().reset_index()
     pulse_transition.columns    = ['file', 'source', 'target', 'value']
     sankey_data                 = pulse_transition[ [ 'source', 'target', 'value'] ]
-    sankey_data.to_csv( os.path.dirname( basePath ) + '\Exhiits\sankey.csv', mode = 'w+', index = False )
+    sankey_data.to_csv( os.path.dirname( basePath ) + '\Results\Sankey\sankey.csv', mode = 'w+', index = False )
 
     pulses      = first_pulses['init_agg'].tolist()
     streaks     = { key: [ ] for key in set( pulses ) }
