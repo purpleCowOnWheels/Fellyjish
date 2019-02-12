@@ -17,7 +17,7 @@ import excel_fns as xlFns
 ######  INPUTS  ######
 ######################
 # thetas          = [0, 45, 90, 135, 180, 225, 270, 315]
-thetas          = list( range( 0, 360, 5 ) )
+thetas          = list( range( 0, 360, 45 ) )
 theta_rollup    = list( range( 0, 361, 45 ) )
 video_dir       = os.path.dirname( basePath ) + '\Vidz\Frames'
 # video_dir       = r'F:\20190131\Vidz\Frames'
@@ -42,6 +42,13 @@ for idx, dir in enumerate( all_vid_dirs ):
     ts              = imgFns.process_video( this_frame_dir, thetas = thetas )
     ts['Avg']       = ts.mean( axis = 1 )
 
+    #using the average line, estimate the pulse interval
+    # peaks           = signal.find_peaks(ts['Avg'], prominence = 3, distance = 20, height = peak_min)[0].tolist()
+    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = 20, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
+
+    #tag each timestamp for which pulse its in
+    ts['pulse_index'] = [ bisect( valleys, x ) for x in ts.index.tolist() ]
+
     #write output to excel
     xlFns.to_excel( {'TimeSeries': ts},
                     file                    = os.path.dirname( basePath ) + '\Results\Time Series\\TS_' + dir.replace(' ', '_') + '.xlsx',
@@ -54,13 +61,6 @@ for idx, dir in enumerate( all_vid_dirs ):
                     batchSize               = 10000,
             )
     
-    #using the average line, estimate the pulse interval
-    # peaks           = signal.find_peaks(ts['Avg'], prominence = 3, distance = 20, height = peak_min)[0].tolist()
-    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = 20, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
-
-    #tag each timestamp for which pulse its in
-    ts['pulse_index'] = [ bisect( valleys, x ) for x in ts.index.tolist() ]
-
     print( '  >> Getting peaks...' )
     peaks               = ts[[ x for x in ts.columns.values if x not in ['Avg'] ]].groupby( 'pulse_index' ).agg( imgFns.pulse_init )
     peaks['init']       = peaks.apply( lambda x: imgFns.first_init( x.tolist() ), axis=1)

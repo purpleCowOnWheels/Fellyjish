@@ -188,7 +188,6 @@ def getCentroid( img, center_x, center_y, depth = 1, max_depth = 3 ):
             else:
                 sub_img[y_indx][x_indx] = np.array([255,255,255], dtype=np.uint8)
 
-    
     # plt.imshow(img)
     # plt.imshow(sub_img)
     # plt.show()
@@ -208,9 +207,10 @@ def _getGradientThreshold( img, center_x, center_y, factor = 5 ):
     return( x / factor )
 
 global centers
-#initial guess for the location of the centroid (sets the search area)
-centers = { '20190130_355pm':   (300, 177),
-            '20190114_01':      (335, 235),
+#initial guess for the location of the centroid (sets the search area); (x, y)
+centers = { '20190130_355pm':                   (300, 177),
+            '20190114_01':                      (335, 235),
+            '20190131_415pm_first1k':           (285, 198)
           }
           
 def process_video( frame_dir, thetas= [0, 90, 180, 270]):    
@@ -231,17 +231,20 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         this_center_x   = centers[os.path.basename(frame_dir)][0]
         this_center_y   = centers[os.path.basename(frame_dir)][1]
     else:
-        this_center_x   = 335 #initial guess for the location of the centroid (sets the search area)
-        this_center_y   = 235 #initial guess for the location of the centroid (sets the search area)
+        img             = io.imread(frame_dir + '\\' + files[0])
+        centroid        = getCentroid(img, 300, 200 )        
+        this_center_x   = centroid[0]                                                       #initial guess for the location of the centroid (sets the search area)
+        this_center_y   = centroid[1]                                                       #initial guess for the location of the centroid (sets the search area)
     
-    centers_x       = [this_center_x]*250   #seed with a prior probability from which rolling average needs to pull away
-    centers_y       = [this_center_y]*250
+    nAvg            = 100
+    centers_x       = [this_center_x]*nAvg                                                  #seed with a prior probability from which rolling average needs to pull away
+    centers_y       = [this_center_y]*nAvg
     jelly_at_edge   = False
     for N, file in enumerate( files ):
         img                 = io.imread(frame_dir + '\\' + file)
         gradient_threshold  = _getGradientThreshold( img, this_center_x, this_center_y )
 
-        if(N % 1000 == 0):
+        if( (N < 1000 and N % 10 == 0) or N % 1000 == 0):                                  #how often should we re-estaimte? constantly out the gate then reasonably regularly.
             print( '  ++ Frame ' + str(N) + ' of ' + str( len( files ) ) )
             #centroid calc is expensive. don't do it every frame
             #pass a starting 'guess' coordinate from the current center
@@ -250,9 +253,9 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
             centers_y.append( centroid[1] )
 
             #centroid naturally moves as the jellyfish pulses, so take a long rolling average. This will only move if there is a macro move in the jellyfish
-            #lag is a parameter that should be tested. currently 250.
-            this_center_x       = int(np.mean(centers_x[max(0,len(centers_x)-500):]))
-            this_center_y       = int(np.mean(centers_y[max(0,len(centers_y)-500):]))            
+            #lag is a parameter that should be tested. currently nAvg.
+            this_center_x       = int(np.mean(centers_x[max(0,len(centers_x)-nAvg):]))
+            this_center_y       = int(np.mean(centers_y[max(0,len(centers_y)-nAvg):]))            
             print( ' | Rolling avg. center location: (' + str( this_center_x ) + ', ' + str( this_center_y ) + ')' )
         
         if( N > 0 and N % 10000 == 0 ):
@@ -273,7 +276,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         
         coordinates = [ get_coord( t, this_center_x, this_center_y ) for t in thetas ]
 
-        show_frames = list( range( 1, 10, 1 ) )
+        show_frames = list( range( 1, 10000, 1000 ) )
         # img_clean   = locateContours ( img )
         this_img = img.copy()
         for coordinate in coordinates:
