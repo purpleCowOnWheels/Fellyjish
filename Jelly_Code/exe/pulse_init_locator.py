@@ -44,7 +44,7 @@ for idx, dir in enumerate( all_vid_dirs ):
 
     #using the average line, estimate the pulse interval
     # peaks           = signal.find_peaks(ts['Avg'], prominence = 3, distance = 20, height = peak_min)[0].tolist()
-    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = 20, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
+    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = 10, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
 
     #tag each timestamp for which pulse its in
     ts['pulse_index'] = [ bisect( valleys, x ) for x in ts.index.tolist() ]
