@@ -244,7 +244,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         img                 = io.imread(frame_dir + '\\' + file)
         gradient_threshold  = _getGradientThreshold( img, this_center_x, this_center_y )
 
-        if( (N < 1000 and N % 10 == 0) or N % 1000 == 0):                                  #how often should we re-estaimte? constantly out the gate then reasonably regularly.
+        if( (N < 250 and N % 10 == 0) or N % 1000 == 0):                                  #how often should we re-estaimte? constantly out the gate then reasonably regularly.
             print( '  ++ Frame ' + str(N) + ' of ' + str( len( files ) ) )
             #centroid calc is expensive. don't do it every frame
             #pass a starting 'guess' coordinate from the current center
@@ -276,7 +276,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         
         coordinates = [ get_coord( t, this_center_x, this_center_y ) for t in thetas ]
 
-        show_frames = list( range( 1, 10000, 1000 ) )
+        show_frames = list( range( 1, 100000, 1000 ) )
         # img_clean   = locateContours ( img )
         this_img = img.copy()
         for coordinate in coordinates:
@@ -337,8 +337,8 @@ def pulse_init( pulse       = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
         for indx, p1 in enumerate( pulse ):
             #For 60fps use 10, for 30fps use 5
             if( indx < 5 ): continue
-            # if( ( p1 / pulse[indx-10] - 1 ) < -0.1 ):                 #instead of 10 ago take max in the last 10?
-            if( ( p1 / max(pulse[max(indx-5,0):indx]) - 1 ) < -0.1 ):  #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
+            # if( ( p1 / max(pulse[max(indx-10,0):indx]) - 1 ) < -0.1 ):    #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
+            if( ( ( p1 / max(pulse[:indx]) ) - 1 ) < -0.1 ):                #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
                 local_index = indx
                 break
     else:
@@ -349,15 +349,13 @@ def pulse_init( pulse       = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
     else:
         return( global_indexes[ local_index ] )
 
-def first_init( frames = [ 10, 25, 25, 26, 27, 28, 29, 29, 30, 31 ] ):
-    frames_reduced  = [ x for x in frames if not pd.isnull(x) ]
-    frames_reduced  = [ x for x in frames_reduced if ( x > ( np.nanmedian( frames_reduced ) - 7 ) )]    #if the pulse was way before the median its likely bad data. throw out that angle.
-    if( len( frames_reduced ) ):
-        first_frame     = frames.index( min( frames_reduced ) )                                         #of the remaining angles, simply pick the one that fired first.
-        if( isinstance( first_frame, np.ndarray ) ): 
-            return( bisect( first_frame, np.median(first_frame) ) )                                     #break ties by taking median (floored if even length)
-        else:
-            return( first_frame )
-    else:
-        return( None )
+def _dense_rank( frames ):
+    x   = sorted( frames )
+    return( [ x.index( v ) for v in frames ] )
 
+def init_order( frames = [ 10, 25, 25, 26, 27, 28, 29, 29, 30, 31 ] ):
+    frames_clean    = [ x if not pd.isnull(x) else 1000 for x in frames ]
+    frames_clean    = [ x if ( x > ( np.nanmedian( frames ) - 7 ) ) else 1000 for x in frames_clean ]
+    ranks           = _dense_rank( frames_clean )
+    ranks           = [ int(x[1]) if frames_clean[x[0]] != 1000 else None for x in enumerate( ranks ) ]
+    return( pd.Series(ranks) )

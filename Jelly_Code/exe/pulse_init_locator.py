@@ -17,12 +17,12 @@ import excel_fns as xlFns
 ######  INPUTS  ######
 ######################
 # thetas          = [0, 45, 90, 135, 180, 225, 270, 315]
-thetas          = list( range( 0, 360, 45 ) )
-theta_rollup    = list( range( 0, 361, 45 ) )
-video_dir       = os.path.dirname( basePath ) + '\Vidz\Frames'
+thetas              = list( range( 0, 360, 5 ) )
+theta_rollup        = list( range( 0, 361, 45 ) )
+video_dir           = os.path.dirname( basePath ) + '\Vidz\Frames'
 # video_dir       = r'F:\20190131\Vidz\Frames'
-specific_vids   = [ ] #pass the name of the folder in which the frames sit (no extension and no path location, just simple file name)
-# specific_vids   = [ '20190131_415pm', '20190131_525pm','20190131_711pm','20190131_829pm','20190131_938pm' ] #pass the name of the folder in which the frames sit (no extension and no path location, just simple file name)
+specific_vids       = [  ] #pass the name of the folder in which the frames sit (no extension and no path location, just simple file name)
+min_pulse_length    = 10    #frames
 
 ######################
 ######  DO IT   ######
@@ -44,7 +44,7 @@ for idx, dir in enumerate( all_vid_dirs ):
 
     #using the average line, estimate the pulse interval
     # peaks           = signal.find_peaks(ts['Avg'], prominence = 3, distance = 20, height = peak_min)[0].tolist()
-    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = 10, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
+    valleys           = signal.find_peaks([ 1/x for x in ts['Avg'].tolist()], distance = min_pulse_length, height = np.percentile( [1/x for x in ts['Avg'].tolist()], 75 ))[0].tolist()
 
     #tag each timestamp for which pulse its in
     ts['pulse_index'] = [ bisect( valleys, x ) for x in ts.index.tolist() ]
@@ -61,24 +61,30 @@ for idx, dir in enumerate( all_vid_dirs ):
                     batchSize               = 10000,
             )
     
-    print( '  >> Getting peaks...' )
-    peaks               = ts[[ x for x in ts.columns.values if x not in ['Avg'] ]].groupby( 'pulse_index' ).agg( imgFns.pulse_init )
-    peaks['init']       = peaks.apply( lambda x: imgFns.first_init( x.tolist() ), axis=1)
-    peaks               = peaks[peaks['init'].apply( lambda x: not pd.isnull(x) )]
-    peaks['init']       = peaks['init'].apply( lambda x: peaks.columns[int(x)] if x is not None else None)
-        
-    peaks['init_agg']   = [ str( theta_rollup[bisect( theta_rollup, int(x) ) - 1] ) + ' - ' + str( theta_rollup[bisect( theta_rollup, int(x) )] ) for x in peaks['init'].tolist() ]
-    first_pulses        = peaks.reset_index()
+    print( '  >> Getting pulse initiations...' )    
+    pulses      = ts[[ x for x in ts.columns.values if x not in ['Avg'] ]].groupby( 'pulse_index' ).agg( imgFns.pulse_init )
+    pulse_order = pulses.apply( lambda x: imgFns.init_order( x.tolist() ), axis=1).reset_index()
+    
+    col_groups  = [ bisect( theta_rollup, int(x) ) for x in pulses.columns.values ]
+    
+    rollup        = { }
+    for group in set(col_groups):
+        cols            = [ pulses.columns.values[indx] for indx, col in enumerate( col_groups ) if col == group ]
+        rollup[ 'rollup_' + str(group) ]   = pulses[cols].min( axis = 1 )
 
-    cols                            = first_pulses.columns.tolist() + [ 'init_agg_next', 'init_agg_next_next' ]
+    rollup                  = pd.DataFrame( rollup )
+    rollup_order            = rollup.apply( lambda x: imgFns.init_order( x.tolist() ), axis=1)
+    rollup_order.columns    = rollup.columns
+    rollup_order.reset_index( inplace = True )
+    # cols                            = pulse_order.columns.tolist() + [ 'init_agg_next', 'init_agg_next_next' ]
 
-    first_pulses['next_index']      = first_pulses['pulse_index'] - 1
-    first_pulses['next_next_index'] = first_pulses['pulse_index'] - 2
+    # pulse_order['next_index']       = pulse_order['pulse_index'] - 1
+    # pulse_order['next_next_index']  = pulse_order['pulse_index'] - 2
 
-    first_pulses                    = first_pulses.merge( first_pulses[['next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_index'], how = 'left', copy = False, suffixes = ['', '_next'] )
-    first_pulses                    = first_pulses.merge( first_pulses[['next_next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_next_index'], how = 'left', copy = False, suffixes = ['', '_next_next'] )
-    first_pulses                    = first_pulses[ cols ]
-    xlFns.to_excel( first_pulses,
+    # pulse_order                     = pulse_order.merge( pulse_order[['next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_index'], how = 'left', copy = False, suffixes = ['', '_next'] )
+    # pulse_order                     = pulse_order.merge( pulse_order[['next_next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_next_index'], how = 'left', copy = False, suffixes = ['', '_next_next'] )
+    # pulse_order                     = pulse_order[ cols ]
+    xlFns.to_excel( { 'First_Pulse': pulse_order, 'RollUp': rollup_order },
                     file                    = os.path.dirname( basePath ) + '\Results\First Pulse\\FP_' + dir.replace(' ', '_') + '.xlsx',
                     masterFile              = os.path.dirname( basePath ) + '\Results\First Pulse\Pulse_Order_vMaster.xlsx',
                     allowMasterOverride     = True,
@@ -91,30 +97,30 @@ for idx, dir in enumerate( all_vid_dirs ):
 
 
     #make the sankey chart
-    pulse_transition            = first_pulses[['init_agg', 'init_agg_next', 'pulse_index']].groupby(['init_agg', 'init_agg_next']).count().reset_index()
-    pulse_transition.columns    = ['source', 'target', 'value']
-    sankey_data                 = pulse_transition[ [ 'source', 'target', 'value'] ]
-    sankey_data.to_csv( os.path.dirname( basePath ) + '\Results\Sankey\sankey_vMaster.csv', mode = 'w+', index = False )
+    # pulse_transition            = pulse_order[['init_agg', 'init_agg_next', 'pulse_index']].groupby(['init_agg', 'init_agg_next']).count().reset_index()
+    # pulse_transition.columns    = ['source', 'target', 'value']
+    # sankey_data                 = pulse_transition[ [ 'source', 'target', 'value'] ]
+    # sankey_data.to_csv( os.path.dirname( basePath ) + '\Results\Sankey\sankey_vMaster.csv', mode = 'w+', index = False )
 
-    pulses      = first_pulses['init_agg'].tolist()
-    streaks     = { key: [ ] for key in set( pulses ) }
-    this_streak = 1
-    for indx, pulse in enumerate( pulses ):
-        if( (indx+1) == len( first_pulses ) ):
-            break
-        if( pulse == pulses[indx + 1] ):
-            this_streak+=1
-        else:
-            streaks[ pulse ].append( this_streak )
-            this_streak = 1
-    streaks_df  = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in streaks.items() ]))
-    xlFns.to_excel( streaks_df,
-                    file                    = os.path.dirname( basePath ) + '\Results\Streaks\\Streaks_' + dir.replace(' ', '_') + '.xlsx',
-                    masterFile              = os.path.dirname( basePath ) + '\Results\Streaks\Streaks_vMaster.xlsx',
-                    allowMasterOverride     = True,
-                    promptIfLocked          = True,
-                    xlsxEngine              = 'xlwings', #xlsxwriter, openpyxl
-                    closeFile               = True,
-                    topLeftCell             = {},
-                    batchSize               = 10000,
-            )
+    # pulses      = first_pulses['init_agg'].tolist()
+    # streaks     = { key: [ ] for key in set( pulses ) }
+    # this_streak = 1
+    # for indx, pulse in enumerate( pulses ):
+        # if( (indx+1) == len( first_pulses ) ):
+            # break
+        # if( pulse == pulses[indx + 1] ):
+            # this_streak+=1
+        # else:
+            # streaks[ pulse ].append( this_streak )
+            # this_streak = 1
+    # streaks_df  = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in streaks.items() ]))
+    # xlFns.to_excel( streaks_df,
+                    # file                    = os.path.dirname( basePath ) + '\Results\Streaks\\Streaks_' + dir.replace(' ', '_') + '.xlsx',
+                    # masterFile              = os.path.dirname( basePath ) + '\Results\Streaks\Streaks_vMaster.xlsx',
+                    # allowMasterOverride     = True,
+                    # promptIfLocked          = True,
+                    # xlsxEngine              = 'xlwings', #xlsxwriter, openpyxl
+                    # closeFile               = True,
+                    # topLeftCell             = {},
+                    # batchSize               = 10000,
+            # )
