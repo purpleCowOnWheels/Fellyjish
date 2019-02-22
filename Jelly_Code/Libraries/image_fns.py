@@ -310,9 +310,10 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
     print( '  >> All frames processed. Analyzing time series...' )
     return( pd.DataFrame( jellyadii ) )
 
-def pulse_init( pulse       = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
-                peak_type   = 'lagged_drop',
-                return_type = 'global_index',                           #local_index or global_index
+def pulse_init( pulse           = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
+                peak_type       = 'lagged_drop',
+                return_type     = 'global_index',                           #local_index or global_index
+                min_contraction = 0.10,                                     #in lagged drop, how much drop needed to trigger event.
                ):
     global_indexes  = pulse.index.tolist()
     pulse           = pulse.tolist()
@@ -338,7 +339,7 @@ def pulse_init( pulse       = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
             #For 60fps use 10, for 30fps use 5
             if( indx < 5 ): continue
             # if( ( p1 / max(pulse[max(indx-10,0):indx]) - 1 ) < -0.1 ):    #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
-            if( ( ( p1 / max(pulse[:indx]) ) - 1 ) < -0.1 ):                #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
+            if( ( ( p1 / max(pulse[:indx]) ) - 1 ) < -min_contraction ):                #technically should be going to max(indx-1,0), but save this calc since @ indx its always 1/1
                 local_index = indx
                 break
     else:
@@ -349,13 +350,13 @@ def pulse_init( pulse       = [ 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 1 ],
     else:
         return( global_indexes[ local_index ] )
 
-def _dense_rank( frames ):
+def _rank_order( frames ):
     x   = sorted( frames )
     return( [ x.index( v ) for v in frames ] )
 
 def init_order( frames = [ 10, 25, 25, 26, 27, 28, 29, 29, 30, 31 ] ):
     frames_clean    = [ x if not pd.isnull(x) else 1000 for x in frames ]
     frames_clean    = [ x if ( x > ( np.nanmedian( frames ) - 7 ) ) else 1000 for x in frames_clean ]
-    ranks           = _dense_rank( frames_clean )
+    ranks           = _rank_order( frames_clean )
     ranks           = [ int(x[1]) if frames_clean[x[0]] != 1000 else None for x in enumerate( ranks ) ]
     return( pd.Series(ranks) )

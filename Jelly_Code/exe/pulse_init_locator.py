@@ -16,7 +16,6 @@ import excel_fns as xlFns
 ######################
 ######  INPUTS  ######
 ######################
-# thetas          = [0, 45, 90, 135, 180, 225, 270, 315]
 thetas              = list( range( 0, 360, 5 ) )
 theta_rollup        = list( range( 0, 361, 45 ) )
 video_dir           = os.path.dirname( basePath ) + '\Vidz\Frames'
@@ -70,9 +69,13 @@ for idx, dir in enumerate( all_vid_dirs ):
     rollup        = { }
     for group in set(col_groups):
         cols            = [ pulses.columns.values[indx] for indx, col in enumerate( col_groups ) if col == group ]
-        rollup[ 'rollup_' + str(group) ]   = pulses[cols].min( axis = 1 )
+        rollup[ 'rollup_' + str(group) ]   = pulses[cols].mean( axis = 1 )
+        # rollup[ 'rollup_' + str(group) ]   = pulses[cols].min( axis = 1 )
 
-    rollup                  = pd.DataFrame( rollup )
+    # rollup                  = pd.DataFrame( rollup )                                            #adjust the rounding here to encourage / discourage ties
+    # rollup                  = pd.DataFrame( rollup ).round(0)                                   #adjust the rounding here to encourage / discourage ties
+    rollup                  = ((pd.DataFrame( rollup )*2).round(0)/2)                           #adjust the rounding here to encourage / discourage ties
+    # rollup                  = pd.DataFrame( rollup ).round(1)                                   #adjust the rounding here to encourage / discourage ties
     rollup_order            = rollup.apply( lambda x: imgFns.init_order( x.tolist() ), axis=1)
     rollup_order.columns    = rollup.columns
     rollup_order.reset_index( inplace = True )
@@ -84,7 +87,11 @@ for idx, dir in enumerate( all_vid_dirs ):
     # pulse_order                     = pulse_order.merge( pulse_order[['next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_index'], how = 'left', copy = False, suffixes = ['', '_next'] )
     # pulse_order                     = pulse_order.merge( pulse_order[['next_next_index', 'init_agg']], left_on = ['pulse_index'], right_on = ['next_next_index'], how = 'left', copy = False, suffixes = ['', '_next_next'] )
     # pulse_order                     = pulse_order[ cols ]
-    xlFns.to_excel( { 'First_Pulse': pulse_order, 'RollUp': rollup_order },
+    xlFns.to_excel( {   'First_Pulse':      pulses,         #frames at which pulse initiated
+                        'First_Pulse_Rank': pulse_order,    #rank of the pulse initiation
+                        'RollUp':           rollup,
+                        'RollUp_Rank':      rollup_order
+                    },
                     file                    = os.path.dirname( basePath ) + '\Results\First Pulse\\FP_' + dir.replace(' ', '_') + '.xlsx',
                     masterFile              = os.path.dirname( basePath ) + '\Results\First Pulse\Pulse_Order_vMaster.xlsx',
                     allowMasterOverride     = True,
