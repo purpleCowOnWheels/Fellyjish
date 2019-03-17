@@ -236,15 +236,15 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         this_center_x   = centroid[0]                                                       #initial guess for the location of the centroid (sets the search area)
         this_center_y   = centroid[1]                                                       #initial guess for the location of the centroid (sets the search area)
     
-    nAvg            = 100
+    nAvg            = 10
+    recalc_freq     = 1000
     centers_x       = [this_center_x]*nAvg                                                  #seed with a prior probability from which rolling average needs to pull away
     centers_y       = [this_center_y]*nAvg
     jelly_at_edge   = False
     for N, file in enumerate( files ):
         img                 = io.imread(frame_dir + '\\' + file)
         gradient_threshold  = _getGradientThreshold( img, this_center_x, this_center_y )
-
-        if( (N < 250 and N % 10 == 0) or N % 1000 == 0):                                  #how often should we re-estaimte? constantly out the gate then reasonably regularly.
+        if( (N < 250 and N % 10 == 0) or N % recalc_freq == 0):                                  #how often should we re-estaimte? constantly out the gate then reasonably regularly.
             print( '  ++ Frame ' + str(N) + ' of ' + str( len( files ) ) )
             #centroid calc is expensive. don't do it every frame
             #pass a starting 'guess' coordinate from the current center
@@ -258,6 +258,17 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
             this_center_y       = int(np.mean(centers_y[max(0,len(centers_y)-nAvg):]))            
             print( ' | Rolling avg. center location: (' + str( this_center_x ) + ', ' + str( this_center_y ) + ')' )
         
+            #recalc center more often if current center is way off
+            try:
+                dist    = sqrt( (this_center_x - centroid[0])**2 + (this_center_y - centroid[1])**2 )
+            except:
+                pdb.set_trace()
+            print( '    ++ Distance = ' + str( round( dist, 1 ) ) ) 
+            if( dist > 10 ):
+                recalc_freq = 5
+            else:
+                recalc_freq = 1000
+                
         if( N > 0 and N % 10000 == 0 ):
             if( not os.path.exists( os.path.dirname( basePath ) + '\Results\Time Series\inProgress' ) ):
                 os.mkdir( os.path.dirname( basePath ) + '\Results\Time Series\inProgress' )
