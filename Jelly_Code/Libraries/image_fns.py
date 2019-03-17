@@ -237,7 +237,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
         this_center_y   = centroid[1]                                                       #initial guess for the location of the centroid (sets the search area)
     
     nAvg            = 10
-    recalc_freq     = 1000
+    recalc_freq     = 250
     centers_x       = [this_center_x]*nAvg                                                  #seed with a prior probability from which rolling average needs to pull away
     centers_y       = [this_center_y]*nAvg
     jelly_at_edge   = False
@@ -271,7 +271,7 @@ def process_video( frame_dir, thetas= [0, 90, 180, 270]):
             if( dist > 10 or len( centers_x ) < nAvg ):
                 recalc_freq = 5
             else:
-                recalc_freq = 1000
+                recalc_freq = 250
                             
         if( N > 0 and N % 10000 == 0 ):
             if( not os.path.exists( os.path.dirname( basePath ) + '\Results\Time Series\inProgress' ) ):
